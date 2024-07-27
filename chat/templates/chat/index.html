@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chatbot Consulting Service</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .chat-container {
+            height: 400px;
+            overflow-y: auto;
+        }
+        .message {
+            margin-bottom: 10px;
+            padding: 10px;
+            border-radius: 10px;
+        }
+        .user-message {
+            background-color: #007bff;
+            color: white;
+            text-align: right;
+        }
+        .bot-message {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-5">
+        <h1 class="text-center mb-4">Chatbot Consulting Service</h1>
+        <div class="row">
+            <div class="col-md-8 offset-md-2">
+                <div class="chat-container border p-3 mb-3" id="chatContainer">
+                    <!-- Chat messages will be displayed here -->
+                </div>
+                <form id="chatForm">
+                    <div class="input-group mb-3">
+                        <input type="text" id="userInput" class="form-control" placeholder="Type your message...">
+                        <button type="submit" class="btn btn-primary">Send</button>
+                    </div>
+                </form>
+                <form id="pdfForm" enctype="multipart/form-data">
+                    <div class="input-group mb-3">
+                        <input type="file" id="pdfFile" class="form-control" accept=".pdf">
+                        <input type="text" id="customPrompt" class="form-control" placeholder="Custom prompt for resume review">
+                        <button type="submit" class="btn btn-secondary">Upload & Review</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const chatContainer = document.getElementById('chatContainer');
+        const chatForm = document.getElementById('chatForm');
+        const userInput = document.getElementById('userInput');
+        const pdfForm = document.getElementById('pdfForm');
+        const pdfFile = document.getElementById('pdfFile');
+        const customPrompt = document.getElementById('customPrompt');
+
+        chatForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const message = userInput.value.trim();
+            if (message) {
+                addMessage(message, true);
+                userInput.value = '';
+                
+                try {
+                    const response = await fetch('/api/messages/chat/', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': getCookie('csrftoken')
+                        },
+                        body: JSON.stringify({ message: message })
+                    });
+                    const data = await response.json();
+                    addMessage(data.content, false);
+                } catch (error) {
+                    console.error('Error:', error);
+                    addMessage('Sorry, an error occurred. Please try again.', false);
+                }
+            }
+        });
+
+        pdfForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData();
+            formData.append('pdf', pdfFile.files[0]);
+            formData.append('prompt', customPrompt.value);
+            
+            try {
+                addMessage("Uploading and reviewing resume...", true);
+                const response = await fetch('/api/messages/review_resume/', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': getCookie('csrftoken')
+                    },
+                    body: formData
+                });
+                const data = await response.json();
+                addMessage(data.content, false);
+            } catch (error) {
+                console.error('Error:', error);
+                addMessage('Sorry, an error occurred while processing the resume. Please try again.', false);
+            }
+        });
+
+        function addMessage(content, isUser) {
+            const messageDiv = document.createElement('div');
+            messageDiv.classList.add('message', isUser ? 'user-message' : 'bot-message');
+            messageDiv.textContent = content;
+            chatContainer.appendChild(messageDiv);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+    </script>
+</body>
+</html>
